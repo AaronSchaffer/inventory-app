@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useMemo } from 'react';
 import { HomeCloseout } from '@/lib/types';
+import { useSupabaseTable } from '@/hooks/useSupabaseTable';
+import ErrorBanner from '@/components/ErrorBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -19,9 +21,11 @@ import { Chart } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 export default function PerformancePage() {
-  const [data, setData] = useState<HomeCloseout[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: rawData, loading, error, clearError } =
+    useSupabaseTable<HomeCloseout>({ table: 'home_closeouts', orderColumn: 'purchase_date', ascending: false });
+
+  const data = useMemo(() => rawData.filter(r => !r.lot?.startsWith('B')), [rawData]);
+
   const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [visibleMetrics, setVisibleMetrics] = useState({
@@ -30,25 +34,6 @@ export default function PerformancePage() {
     avgDailyGain: true,
   });
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data: records, error: fetchError } = await supabase
-        .from('home_closeouts')
-        .select('*')
-        .order('purchase_date', { ascending: false });
-      if (fetchError) throw fetchError;
-      setData((records || []).filter((r: HomeCloseout) => !r.lot?.startsWith('B')));
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
 
   const availableGroups = data.filter(record =>
     record.purchase_date &&
@@ -84,7 +69,6 @@ export default function PerformancePage() {
     return new Date(dateStr).toLocaleDateString();
   };
 
-  // Build chart data
   const datasets: Array<{
     label: string;
     data: (number | null)[];
@@ -158,23 +142,11 @@ export default function PerformancePage() {
     },
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <div className="loader rounded-full h-12 w-12 border-4 border-gray-200 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading data...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <strong>Error:</strong> {error}
-          <button onClick={() => setError(null)} className="float-right font-bold">&times;</button>
-        </div>
-      )}
+      {error && <ErrorBanner error={error} onDismiss={clearError} />}
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex justify-between items-center">
@@ -189,7 +161,6 @@ export default function PerformancePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Group Selection Panel */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b">
             <h3 className="font-semibold">Select Groups</h3>
@@ -239,7 +210,6 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        {/* Chart Panel */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow overflow-hidden">
           {selectedGroups.length === 0 ? (
             <div className="h-96 flex items-center justify-center text-gray-500">
@@ -247,7 +217,6 @@ export default function PerformancePage() {
             </div>
           ) : (
             <div>
-              {/* Chart Controls */}
               <div className="p-4 border-b bg-gray-50">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap gap-3">
@@ -297,7 +266,6 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* Data Table for Selected Groups */}
       {sortedSelectedData.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b">

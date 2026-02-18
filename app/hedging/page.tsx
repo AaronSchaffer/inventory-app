@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState } from 'react';
 import { HedgingRecord } from '@/lib/types';
+import { validate, hedgingRules } from '@/lib/validation';
+import { useSupabaseTable } from '@/hooks/useSupabaseTable';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
+import ErrorBanner from '@/components/ErrorBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 function formatFuturesMonth(dateValue: string | null): string {
   if (!dateValue) return '-';
@@ -19,50 +22,33 @@ function parseFuturesMonthForInput(dateValue: string | null): string {
 }
 
 export default function HedgingPage() {
-  const [records, setRecords] = useState<HedgingRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: records, loading, error, setError, clearError, fetchData, insert, update, remove } =
+    useSupabaseTable<HedgingRecord>({ table: 'hedging', orderColumn: 'futures_month', ascending: true });
+
   const [showAddForm, setShowAddForm] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<HedgingRecord | null>(null);
   const [form, setForm] = useState({ futures_month: '', positions: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
-  const fetchRecords = async () => {
-    setLoading(true);
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('hedging').select('*').order('futures_month', { ascending: true });
-      if (fetchError) throw fetchError;
-      setRecords(data || []);
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchRecords(); }, []);
-
   const handleSubmit = async (cattleType: string) => {
-    try {
-      const recordData = {
-        cattle_type: cattleType,
-        futures_month: form.futures_month ? form.futures_month + '-01' : null,
-        positions: form.positions ? Number(form.positions) : null,
-      };
-      if (editingRecord) {
-        const { error: updateError } = await supabase.from('hedging').update(recordData).eq('id', editingRecord.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase.from('hedging').insert([recordData]);
-        if (insertError) throw insertError;
-      }
+    const recordData = {
+      cattle_type: cattleType,
+      futures_month: form.futures_month ? form.futures_month + '-01' : null,
+      positions: form.positions ? Number(form.positions) : null,
+    };
+    const validationError = validate(recordData, hedgingRules);
+    if (validationError) { setError(validationError); return; }
+
+    let success: boolean;
+    if (editingRecord) {
+      success = await update(editingRecord.id, recordData);
+    } else {
+      success = await insert(recordData);
+    }
+    if (success) {
       setShowAddForm(null);
       setEditingRecord(null);
       setForm({ futures_month: '', positions: '' });
-      fetchRecords();
-    } catch (err: unknown) {
-      setError((err as Error).message);
     }
   };
 
@@ -77,14 +63,8 @@ export default function HedgingPage() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    try {
-      const { error: deleteError } = await supabase.from('hedging').delete().eq('id', deleteConfirm);
-      if (deleteError) throw deleteError;
-      setDeleteConfirm(null);
-      fetchRecords();
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    }
+    const success = await remove(deleteConfirm);
+    if (success) setDeleteConfirm(null);
   };
 
   const handleCancel = () => {
@@ -165,24 +145,16 @@ export default function HedgingPage() {
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Hedging</h2>
-          <button onClick={fetchRecords} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+          <button onClick={fetchData} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <strong>Error:</strong> {error}
-          <button onClick={() => setError(null)} className="float-right font-bold">&times;</button>
-        </div>
-      )}
+      {error && <ErrorBanner error={error} onDismiss={clearError} />}
 
       {loading ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <div className="loader rounded-full h-12 w-12 border-4 border-gray-200 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading hedging data...</p>
-        </div>
+        <LoadingSpinner message="Loading hedging data..." />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <HedgingTable title="Feeder Cattle" data={feederCattleRecords} cattleType="feeder" />

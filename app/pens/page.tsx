@@ -1,60 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState } from 'react';
 import { Pen } from '@/lib/types';
+import { validate, penRules } from '@/lib/validation';
+import { useSupabaseTable } from '@/hooks/useSupabaseTable';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
+import ErrorBanner from '@/components/ErrorBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const penTypes = ['Open Lot', 'Lot with Shed', 'Confinement'];
 
 export default function PensPage() {
-  const [pens, setPens] = useState<Pen[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: pens, loading, error, setError, clearError, fetchData, insert, update, remove } =
+    useSupabaseTable<Pen>({ table: 'pens', orderColumn: 'pen_name', ascending: true });
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPen, setEditingPen] = useState<Pen | null>(null);
   const [form, setForm] = useState({ pen_name: '', pen_square_feet: '', pen_type: 'Open Lot', pre_ship: false });
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
-  const fetchPens = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data: records, error: fetchError } = await supabase
-        .from('pens').select('*').order('pen_name', { ascending: true });
-      if (fetchError) throw fetchError;
-      setPens(records || []);
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchPens(); }, []);
-
   const resetForm = () => setForm({ pen_name: '', pen_square_feet: '', pen_type: 'Open Lot', pre_ship: false });
 
   const handleSubmit = async () => {
-    try {
-      if (form.pre_ship && form.pen_name?.toUpperCase().startsWith('B')) {
-        setError('Pre-Ship pens cannot have a name starting with "B"');
-        return;
-      }
-      const payload = { ...form, pen_square_feet: form.pen_square_feet ? Number(form.pen_square_feet) : null };
-      if (editingPen) {
-        const { error: updateError } = await supabase.from('pens').update(payload).eq('id', editingPen.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase.from('pens').insert([payload]);
-        if (insertError) throw insertError;
-      }
+    if (form.pre_ship && form.pen_name?.toUpperCase().startsWith('B')) {
+      setError('Pre-Ship pens cannot have a name starting with "B"');
+      return;
+    }
+    const validationError = validate(form, penRules);
+    if (validationError) { setError(validationError); return; }
+
+    const payload = { ...form, pen_square_feet: form.pen_square_feet ? Number(form.pen_square_feet) : null };
+    let success: boolean;
+    if (editingPen) {
+      success = await update(editingPen.id, payload);
+    } else {
+      success = await insert(payload);
+    }
+    if (success) {
       setShowAddForm(false);
       setEditingPen(null);
       resetForm();
-      fetchPens();
-    } catch (err: unknown) {
-      setError((err as Error).message);
     }
   };
 
@@ -71,39 +56,21 @@ export default function PensPage() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    try {
-      const { error: deleteError } = await supabase.from('pens').delete().eq('id', deleteConfirm);
-      if (deleteError) throw deleteError;
-      setDeleteConfirm(null);
-      fetchPens();
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    }
+    const success = await remove(deleteConfirm);
+    if (success) setDeleteConfirm(null);
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <div className="loader rounded-full h-12 w-12 border-4 border-gray-200 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading pens...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner message="Loading pens..." />;
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <strong>Error:</strong> {error}
-          <button onClick={() => setError(null)} className="float-right font-bold">&times;</button>
-        </div>
-      )}
+      {error && <ErrorBanner error={error} onDismiss={clearError} />}
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Edit Pens</h2>
           <div className="flex gap-2">
-            <button onClick={fetchPens} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+            <button onClick={fetchData} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
             </button>
             <button onClick={() => { resetForm(); setEditingPen(null); setShowAddForm(true); }} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2">

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import Navigation from '@/components/Navigation';
+import AuthProvider from '@/components/AuthProvider';
+import NavigationWrapper from '@/components/NavigationWrapper';
 
 export const metadata: Metadata = {
   title: 'Feedlot Manager',
@@ -11,12 +12,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <div className="min-h-screen bg-gray-100">
-          <Navigation />
-          <main className="max-w-7xl mx-auto px-4 py-6">
-            {children}
-          </main>
-        </div>
+        <AuthProvider>
+          <div className="min-h-screen bg-gray-100">
+            <NavigationWrapper />
+            <main className="max-w-7xl mx-auto px-4 py-6">
+              {children}
+            </main>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

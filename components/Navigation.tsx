@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
 
 function ChevronDown() {
   return (
@@ -64,6 +65,7 @@ function Dropdown({ label, items }: DropdownProps) {
 
 export default function Navigation() {
   const pathname = usePathname();
+  const { signOut } = useAuth();
 
   return (
     <nav className="bg-blue-800 text-white shadow-lg">
@@ -113,6 +115,15 @@ export default function Navigation() {
           >
             Performance Charts
           </Link>
+
+          <div className="ml-auto">
+            <button
+              onClick={signOut}
+              className="px-3 py-2 rounded hover:bg-blue-700 text-sm"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     </nav>

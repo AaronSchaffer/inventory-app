@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useMemo } from 'react';
 import { HomeCloseout } from '@/lib/types';
 import { allColumns, allDetailsTableColumns } from '@/lib/columns';
+import { validate, homeCloseoutRules } from '@/lib/validation';
+import { useSupabaseTable } from '@/hooks/useSupabaseTable';
 import DataTable from '@/components/DataTable';
 import EditModal from '@/components/EditModal';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
+import ErrorBanner from '@/components/ErrorBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function AllDetailsPage() {
-  const [data, setData] = useState<HomeCloseout[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: rawData, loading, error, setError, clearError, fetchData, update, remove } =
+    useSupabaseTable<HomeCloseout>({ table: 'home_closeouts', orderColumn: 'purchase_date', ascending: false });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editingRecord, setEditingRecord] = useState<Record<string, unknown> | null>(null);
@@ -20,24 +23,7 @@ export default function AllDetailsPage() {
 
   const editableColumns = allColumns.filter(c => c.editable !== false && c.key !== 'created_at').map(c => c.key);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data: records, error: fetchError } = await supabase
-        .from('home_closeouts')
-        .select('*')
-        .order('purchase_date', { ascending: false });
-      if (fetchError) throw fetchError;
-      setData((records || []).filter((r: HomeCloseout) => !r.lot?.startsWith('B')));
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const data = useMemo(() => rawData.filter(r => !r.lot?.startsWith('B')), [rawData]);
 
   const baseFilteredData = data.filter(record => record.purchase_date);
 
@@ -54,47 +40,25 @@ export default function AllDetailsPage() {
   const paginatedData = filteredData.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   const handleSave = async (record: Record<string, unknown>) => {
-    try {
-      const { error: updateError } = await supabase.from('home_closeouts').update(record).eq('id', record.id);
-      if (updateError) throw updateError;
-      setEditingRecord(null);
-      fetchData();
-      return true;
-    } catch (err: unknown) {
-      setError((err as Error).message);
-      return false;
-    }
+    const validationError = validate(record, homeCloseoutRules);
+    if (validationError) { setError(validationError); return false; }
+    const { id, ...rest } = record;
+    const success = await update(id as number, rest);
+    if (success) setEditingRecord(null);
+    return success;
   };
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    try {
-      const { error: deleteError } = await supabase.from('home_closeouts').delete().eq('id', deleteConfirm);
-      if (deleteError) throw deleteError;
-      setDeleteConfirm(null);
-      fetchData();
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    }
+    const success = await remove(deleteConfirm);
+    if (success) setDeleteConfirm(null);
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <div className="loader rounded-full h-12 w-12 border-4 border-gray-200 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading data...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <strong>Error:</strong> {error}
-          <button onClick={() => setError(null)} className="float-right font-bold">&times;</button>
-        </div>
-      )}
+      {error && <ErrorBanner error={error} onDismiss={clearError} />}
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex justify-between items-center">
