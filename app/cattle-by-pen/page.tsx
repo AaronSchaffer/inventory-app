@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { GroupByPen } from '@/lib/types';
+import { useState, useCallback, useEffect } from 'react';
+import { GroupByPen, HomeCloseout, Pen } from '@/lib/types';
 import { validate, groupByPenRules } from '@/lib/validation';
 import { useSupabaseTable } from '@/hooks/useSupabaseTable';
 import { useClipboard } from '@/hooks/useClipboard';
@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import SearchableSelect from '@/components/SearchableSelect';
 
 export default function CattleByPenPage() {
   const { data: records, loading, error, setError, clearError, fetchData, insert, update, remove } =
@@ -19,6 +20,18 @@ export default function CattleByPenPage() {
   const [form, setForm] = useState({ group_name: '', pen_name: '', head: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [groupNames, setGroupNames] = useState<string[]>([]);
+  const [penNames, setPenNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function fetchOptions() {
+      const { data: groups } = await supabase.from('home_closeouts').select('lot').not('lot', 'is', null);
+      const { data: pens } = await supabase.from('pens').select('pen_name').not('pen_name', 'is', null);
+      if (groups) setGroupNames(Array.from(new Set(groups.map((g: { lot: string }) => g.lot).filter(Boolean))));
+      if (pens) setPenNames(Array.from(new Set(pens.map((p: { pen_name: string }) => p.pen_name).filter(Boolean))));
+    }
+    fetchOptions();
+  }, []);
 
   const clipboardInsert = useCallback(async (record: Record<string, unknown>) => {
     if (!record.group_name && !record.pen_name) return false;
@@ -134,11 +147,21 @@ export default function CattleByPenPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
-              <input type="text" value={form.group_name} onChange={e => setForm({ ...form, group_name: e.target.value })} className="w-full border rounded px-3 py-2" placeholder="Enter group name" />
+              <SearchableSelect
+                options={groupNames}
+                value={form.group_name}
+                onChange={val => setForm({ ...form, group_name: val })}
+                placeholder="Search group name..."
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pen Name</label>
-              <input type="text" value={form.pen_name} onChange={e => setForm({ ...form, pen_name: e.target.value })} className="w-full border rounded px-3 py-2" placeholder="Enter pen name" />
+              <SearchableSelect
+                options={penNames}
+                value={form.pen_name}
+                onChange={val => setForm({ ...form, pen_name: val })}
+                placeholder="Search pen name..."
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Head</label>

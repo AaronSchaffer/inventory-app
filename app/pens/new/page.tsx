@@ -4,20 +4,17 @@ import { useState } from 'react';
 import { Pen } from '@/lib/types';
 import { validate, penRules } from '@/lib/validation';
 import { useSupabaseTable } from '@/hooks/useSupabaseTable';
-import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 const penTypes = ['N/A', 'Open Lot', 'Lot with Shed', 'Confinement'];
 
-export default function PensPage() {
-  const { data: pens, loading, error, setError, clearError, fetchData, insert, update, remove } =
+export default function NewPenPage() {
+  const { data: pens, loading, error, setError, clearError, fetchData, insert } =
     useSupabaseTable<Pen>({ table: 'pens', orderColumn: 'pen_name', ascending: true });
 
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingPen, setEditingPen] = useState<Pen | null>(null);
   const [form, setForm] = useState({ pen_name: '', pen_square_feet: '', pen_type: 'Open Lot', pre_ship: false, bunk_space_ft: '' });
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const resetForm = () => setForm({ pen_name: '', pen_square_feet: '', pen_type: 'Open Lot', pre_ship: false, bunk_space_ft: '' });
 
@@ -30,35 +27,11 @@ export default function PensPage() {
     if (validationError) { setError(validationError); return; }
 
     const payload = { ...form, pen_square_feet: form.pen_square_feet ? Number(form.pen_square_feet) : null, bunk_space_ft: form.bunk_space_ft ? Math.floor(Number(form.bunk_space_ft)) : null };
-    let success: boolean;
-    if (editingPen) {
-      success = await update(editingPen.id, payload);
-    } else {
-      success = await insert(payload);
-    }
+    const success = await insert(payload);
     if (success) {
       setShowAddForm(false);
-      setEditingPen(null);
       resetForm();
     }
-  };
-
-  const handleEdit = (pen: Pen) => {
-    setForm({
-      pen_name: pen.pen_name || '',
-      pen_square_feet: pen.pen_square_feet ? String(pen.pen_square_feet) : '',
-      pen_type: pen.pen_type || 'Open Lot',
-      pre_ship: pen.pre_ship || false,
-      bunk_space_ft: pen.bunk_space_ft ? String(pen.bunk_space_ft) : '',
-    });
-    setEditingPen(pen);
-    setShowAddForm(true);
-  };
-
-  const handleDelete = async () => {
-    if (!deleteConfirm) return;
-    const success = await remove(deleteConfirm);
-    if (success) setDeleteConfirm(null);
   };
 
   if (loading) return <LoadingSpinner message="Loading pens..." />;
@@ -69,12 +42,12 @@ export default function PensPage() {
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Edit Pens</h2>
+          <h2 className="text-xl font-semibold">New Pen</h2>
           <div className="flex gap-2">
             <button onClick={fetchData} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
             </button>
-            <button onClick={() => { resetForm(); setEditingPen(null); setShowAddForm(true); }} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2">
+            <button onClick={() => { resetForm(); setShowAddForm(true); }} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               Add Pen
             </button>
@@ -84,7 +57,7 @@ export default function PensPage() {
 
       {showAddForm && (
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="font-semibold mb-4">{editingPen ? 'Edit Pen' : 'Add New Pen'}</h3>
+          <h3 className="font-semibold mb-4">Add New Pen</h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pen Name</label>
@@ -112,8 +85,8 @@ export default function PensPage() {
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => { setShowAddForm(false); setEditingPen(null); resetForm(); }} className="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
-            <button onClick={handleSubmit} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">{editingPen ? 'Save Changes' : 'Add Pen'}</button>
+            <button onClick={() => { setShowAddForm(false); resetForm(); }} className="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
+            <button onClick={handleSubmit} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Add Pen</button>
           </div>
         </div>
       )}
@@ -127,12 +100,11 @@ export default function PensPage() {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pen Type</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bunk Space (ft)</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pre-Ship</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {pens.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No pens found. Click &quot;Add Pen&quot; to create one.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No pens found. Click &quot;Add Pen&quot; to create one.</td></tr>
             ) : (
               pens.map(pen => (
                 <tr key={pen.id} className="hover:bg-gray-50">
@@ -147,24 +119,12 @@ export default function PensPage() {
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">No</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleEdit(pen)} className="text-blue-500 hover:text-blue-700 mr-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                    </button>
-                    <button onClick={() => setDeleteConfirm(pen.id)} className="text-red-500 hover:text-red-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-
-      {deleteConfirm && (
-        <DeleteConfirmModal message="Are you sure you want to delete this pen? This action cannot be undone." onConfirm={handleDelete} onCancel={() => setDeleteConfirm(null)} />
-      )}
     </div>
   );
 }

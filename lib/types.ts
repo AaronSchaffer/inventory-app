@@ -43,6 +43,7 @@ export interface Pen {
   pen_square_feet: number | null;
   pen_type: string | null;
   pre_ship: boolean | null;
+  bunk_space_ft: number | null;
 }
 
 export interface GroupByPen {

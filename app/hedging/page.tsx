@@ -8,17 +8,21 @@ import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 function formatFuturesMonth(dateValue: string | null): string {
   if (!dateValue) return '-';
-  const date = new Date(dateValue);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return months[date.getMonth()] + date.getFullYear().toString().slice(-2);
+  // Parse YYYY-MM-DD directly to avoid timezone shifting
+  const parts = dateValue.split('-');
+  const monthIndex = parseInt(parts[1], 10) - 1;
+  const year = parts[0].slice(-2);
+  return MONTH_NAMES[monthIndex] + year;
 }
 
-function parseFuturesMonthForInput(dateValue: string | null): string {
-  if (!dateValue) return '';
-  const date = new Date(dateValue);
-  return date.toISOString().slice(0, 7);
+function parseFuturesMonthForForm(dateValue: string | null): { month: string; year: string } {
+  if (!dateValue) return { month: '', year: '' };
+  const parts = dateValue.split('-');
+  return { month: String(parseInt(parts[1], 10)), year: parts[0] };
 }
 
 export default function HedgingPage() {
@@ -27,13 +31,16 @@ export default function HedgingPage() {
 
   const [showAddForm, setShowAddForm] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<HedgingRecord | null>(null);
-  const [form, setForm] = useState({ futures_month: '', positions: '' });
+  const [form, setForm] = useState({ futures_month_m: '', futures_month_y: '', positions: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   const handleSubmit = async (cattleType: string) => {
+    const futuresMonth = form.futures_month_m && form.futures_month_y
+      ? `${form.futures_month_y}-${form.futures_month_m.padStart(2, '0')}-01`
+      : null;
     const recordData = {
       cattle_type: cattleType,
-      futures_month: form.futures_month ? form.futures_month + '-01' : null,
+      futures_month: futuresMonth,
       positions: form.positions ? Number(form.positions) : null,
     };
     const validationError = validate(recordData, hedgingRules);
@@ -48,13 +55,15 @@ export default function HedgingPage() {
     if (success) {
       setShowAddForm(null);
       setEditingRecord(null);
-      setForm({ futures_month: '', positions: '' });
+      setForm({ futures_month_m: '', futures_month_y: '', positions: '' });
     }
   };
 
   const handleEdit = (record: HedgingRecord, cattleType: string) => {
+    const parsed = parseFuturesMonthForForm(record.futures_month);
     setForm({
-      futures_month: parseFuturesMonthForInput(record.futures_month),
+      futures_month_m: parsed.month,
+      futures_month_y: parsed.year,
       positions: record.positions ? String(record.positions) : '',
     });
     setEditingRecord(record);
@@ -70,7 +79,7 @@ export default function HedgingPage() {
   const handleCancel = () => {
     setShowAddForm(null);
     setEditingRecord(null);
-    setForm({ futures_month: '', positions: '' });
+    setForm({ futures_month_m: '', futures_month_y: '', positions: '' });
   };
 
   const feederCattleRecords = records.filter(r => r.cattle_type === 'Feeder Cattle');
@@ -92,7 +101,28 @@ export default function HedgingPage() {
           <div className="flex gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Futures Month</label>
-              <input type="month" value={form.futures_month} onChange={e => setForm({ ...form, futures_month: e.target.value })} className="border rounded px-3 py-2" />
+              <div className="flex gap-2">
+                <select
+                  value={form.futures_month_m}
+                  onChange={e => setForm({ ...form, futures_month_m: e.target.value })}
+                  className="border rounded px-3 py-2 bg-white"
+                >
+                  <option value="">Month</option>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={String(i + 1)}>{name}</option>
+                  ))}
+                </select>
+                <select
+                  value={form.futures_month_y}
+                  onChange={e => setForm({ ...form, futures_month_y: e.target.value })}
+                  className="border rounded px-3 py-2 bg-white"
+                >
+                  <option value="">Year</option>
+                  {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() + i - 1).map(y => (
+                    <option key={y} value={String(y)}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Positions</label>

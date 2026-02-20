@@ -76,7 +76,7 @@ export default function Navigation() {
           </Link>
 
           <Dropdown
-            label="Home/Lots"
+            label="Home Cattle"
             items={[
               { href: '/groups', label: 'New Group' },
               { href: '/groups/key-details', label: 'Edit Key Group Details' },
@@ -85,36 +85,44 @@ export default function Navigation() {
           />
 
           <Dropdown
-            label="Brockoff"
+            label="Brockoff Cattle"
             items={[
-              { href: '/brockoff', label: 'Add-Edit Group' },
+              { href: '/brockoff', label: 'New Group' },
+              { href: '/brockoff/key-details', label: 'Edit Key Group Details' },
+              { href: '/brockoff/all-details', label: 'Edit All Group Details' },
             ]}
           />
 
-          <Link
-            href="/pens"
-            className={`px-3 py-2 rounded hover:bg-blue-700 ${pathname === '/pens' ? 'bg-blue-700' : ''}`}
-          >
-            Edit Pens
-          </Link>
-          <Link
-            href="/cattle-by-pen"
-            className={`px-3 py-2 rounded hover:bg-blue-700 ${pathname === '/cattle-by-pen' ? 'bg-blue-700' : ''}`}
-          >
-            Edit Cattle by Pen
-          </Link>
-          <Link
-            href="/hedging"
-            className={`px-3 py-2 rounded hover:bg-blue-700 ${pathname === '/hedging' ? 'bg-blue-700' : ''}`}
-          >
-            Hedging
-          </Link>
-          <Link
-            href="/performance"
-            className={`px-3 py-2 rounded hover:bg-blue-700 ${pathname === '/performance' ? 'bg-blue-700' : ''}`}
-          >
-            Performance Charts
-          </Link>
+          <Dropdown
+            label="Pens"
+            items={[
+              { href: '/pens/new', label: 'New Pen' },
+              { href: '/pens/key-details', label: 'Edit Key Pen Details' },
+              { href: '/pens/all-details', label: 'Edit All Pen Details' },
+            ]}
+          />
+
+          <Dropdown
+            label="Cattle by Pen"
+            items={[
+              { href: '/cattle-by-pen', label: 'View / Edit' },
+            ]}
+          />
+
+          <Dropdown
+            label="Hedging"
+            items={[
+              { href: '/hedging/feeder-cattle', label: 'Feeder Cattle' },
+              { href: '/hedging/live-cattle', label: 'Live Cattle' },
+            ]}
+          />
+
+          <Dropdown
+            label="Analytics"
+            items={[
+              { href: '/performance', label: 'Performance Charts' },
+            ]}
+          />
 
           <div className="ml-auto">
             <button

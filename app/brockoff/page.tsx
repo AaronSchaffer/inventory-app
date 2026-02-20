@@ -12,6 +12,7 @@ import EditModal from '@/components/EditModal';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import CsvImporter from '@/components/CsvImporter';
 
 export default function BrockoffPage() {
   const { data: rawData, loading, error, setError, clearError, fetchData, insert, update, remove } =
@@ -24,6 +25,7 @@ export default function BrockoffPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const recordsPerPage = 15;
 
+  const brockoffFields = ['lot', 'purchase_date', 'hd_purchased', 'purchase_wgt', 'purchase_price_per_cwt'];
   const data = useMemo(() => rawData.filter(r => r.lot?.startsWith('B')), [rawData]);
   const totalPages = Math.ceil(data.length / recordsPerPage);
   const paginatedData = data.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
@@ -98,6 +100,12 @@ export default function BrockoffPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
               Paste from Clipboard
             </button>
+            <CsvImporter
+              table="home_closeouts"
+              allowedFields={brockoffFields}
+              onComplete={() => { clearError(); fetchData(); }}
+              onError={setError}
+            />
             <button onClick={fetchData} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
             </button>

@@ -52,6 +52,7 @@ export const homeCloseoutRules: ValidationRules = {
 export const penRules: ValidationRules = {
   pen_name: { required: true, maxLength: 50 },
   pen_square_feet: { min: 0, max: 10000000 },
+  bunk_space_ft: { min: 0, max: 999 },
 };
 
 export const groupByPenRules: ValidationRules = {

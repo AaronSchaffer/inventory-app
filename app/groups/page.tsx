@@ -10,6 +10,8 @@ import EditModal from '@/components/EditModal';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import CsvImporter from '@/components/CsvImporter';
+import { allColumns } from '@/lib/columns';
 
 export default function NewGroupPage() {
   const { data: rawData, loading, error, setError, clearError, fetchData, insert, update, remove } =
@@ -22,6 +24,7 @@ export default function NewGroupPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const recordsPerPage = 15;
 
+  const allMappableFields = allColumns.filter(c => c.editable !== false && c.key !== 'id' && c.key !== 'created_at').map(c => c.key);
   const data = useMemo(() => rawData.filter(r => !r.lot?.startsWith('B')), [rawData]);
   const filteredData = data.filter(r => r.purchase_date);
   const totalPages = Math.ceil(filteredData.length / recordsPerPage);
@@ -62,6 +65,12 @@ export default function NewGroupPage() {
             <button onClick={fetchData} className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
             </button>
+            <CsvImporter
+              table="home_closeouts"
+              allowedFields={allMappableFields}
+              onComplete={() => { clearError(); fetchData(); }}
+              onError={setError}
+            />
             <button
               onClick={() => setShowAddForm(true)}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2"
